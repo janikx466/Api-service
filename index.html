@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>API Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex justify-center items-center">
+
+<div class="bg-white w-full max-w-md p-6 rounded-xl shadow-lg">
+
+  <h2 class="text-2xl font-bold text-center mb-4">
+    External API Generator
+  </h2>
+
+  <!-- LOGIN -->
+  <button id="loginBtn"
+    class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded font-semibold">
+    Sign in with Google
+  </button>
+
+  <!-- NAME SECTION -->
+  <div id="nameSection" class="hidden mt-4">
+    <input id="userName"
+      class="w-full border p-2 rounded mb-2"
+      placeholder="Enter your name" />
+    <button onclick="saveName()"
+      class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded">
+      Continue
+    </button>
+  </div>
+
+  <!-- API SECTION -->
+  <div id="apiSection" class="hidden mt-4">
+    <button onclick="generateApi()"
+      class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded mb-2">
+      Generate API
+    </button>
+
+    <pre id="apiList"
+      class="bg-gray-100 p-2 rounded text-sm"></pre>
+
+    <p id="msg" class="font-semibold mt-2 text-center"></p>
+  </div>
+
+</div>
+
+<script>
+/* ---------- FIREBASE CONFIG ---------- */
+firebase.initializeApp({
+  apiKey: "AIzaSyD0Q50-C536lbJBJkc8mB-TbF9TQQSIywY",
+  authDomain: "student-fastapi.firebaseapp.com",
+  projectId: "student-fastapi"
+});
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let currentUser = null;
+let userDocRef = null;
+
+/* ---------- LOGIN ---------- */
+loginBtn.onclick = async () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  const res = await auth.signInWithPopup(provider);
+  currentUser = res.user;
+  userDocRef = db.collection("api_users").doc(currentUser.uid);
+
+  loginBtn.style.display = "none";
+
+  const snap = await userDocRef.get();
+  if (!snap.exists) {
+    nameSection.classList.remove("hidden");
+  } else {
+    apiSection.classList.remove("hidden");
+    showApis(snap.data().apis || []);
+  }
+};
+
+/* ---------- SAVE NAME ---------- */
+async function saveName() {
+  const name = userName.value.trim();
+  if (!name) return alert("Enter your name");
+
+  await userDocRef.set({
+    name: name,
+    email: currentUser.email,
+    apis: []
+  });
+
+  nameSection.classList.add("hidden");
+  apiSection.classList.remove("hidden");
+}
+
+/* ---------- GENERATE API ---------- */
+async function generateApi() {
+  const snap = await userDocRef.get();
+  const data = snap.data();
+  const apis = data.apis || [];
+
+  if (apis.length >= 2) {
+    msg.innerText = "❌ API limit reached. Use another Gmail.";
+    msg.className = "text-red-600 font-semibold";
+    return;
+  }
+
+  const newApi = crypto.randomUUID();
+  apis.push(newApi);
+
+  await userDocRef.update({ apis });
+
+  showApis(apis);
+
+  msg.innerText =
+    apis.length === 1
+    ? "✅ API created. You can create one more."
+    : "✅ Second API created. Limit reached.";
+
+  msg.className = "text-green-600 font-semibold";
+}
+
+/* ---------- SHOW APIS ---------- */
+function showApis(apis) {
+  apiList.innerText = apis.join("\n");
+}
+</script>
+
+</body>
+  </html>
